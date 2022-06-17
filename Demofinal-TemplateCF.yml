@@ -328,7 +328,7 @@ Resources:
     Type: "AWS::EC2::Instance"
     Properties:
       InstanceType: t2.micro
-      ImageId: ami-08ca43728b59600fc #ami creada
+      ImageId: ami-052efd3df9dad4825 #ami creada
       #ImageId: ami-09d56f8956ab235b3  #ami ubuntu
       SubnetId: !Ref PrivateSubnet1
       SecurityGroupIds:
@@ -343,14 +343,22 @@ Resources:
 
 
   #Crear SNS notification ----
-
+  Snsnotification:
+    Type: AWS::SNS::Topic
+    Properties: 
+      #ContentBasedDeduplication: false
+      DisplayName: Snsnotification
+      Subscription:
+        - Endpoint: "cecilia_sandoval@epam.com"
+          Protocol: "email"
+      TopicName: Snsnotification
 
 
   #Crear configuration for new Ec2
   ConfigNewEc2:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      ImageId: ami-08ca43728b59600fc
+      ImageId: ami-052efd3df9dad4825
       InstanceType: t2.micro
       SecurityGroups:
       - !Ref SecurityGroupWS
@@ -386,11 +394,11 @@ Resources:
       #MixedInstancesPolicy: 
         #MixedInstancesPolicy
       NewInstancesProtectedFromScaleIn: false
-      #NotificationConfigurations:
-        #- TopicARN: !Ref Snsnotification
-          #NotificationTypes:
-          #- autoscaling:EC2_INSTANCE_LAUNCH
-          #- autoscaling:EC2_INSTANCE_TERMINATE
+      NotificationConfigurations:
+        - TopicARN: !Ref Snsnotification
+          NotificationTypes:
+          - autoscaling:EC2_INSTANCE_LAUNCH
+          - autoscaling:EC2_INSTANCE_TERMINATE
       TargetGroupARNs: 
         - !Ref LBTargetGourp
       TerminationPolicies: 
