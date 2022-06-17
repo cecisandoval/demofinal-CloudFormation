@@ -37,7 +37,7 @@ Parameters:
   KeyName: #Key for Ec2
     Description: Key Pair for EC2
     Type: 'AWS::EC2::KeyPair::KeyName'
-
+    Default: mykey
 
 Resources:
 
