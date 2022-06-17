@@ -386,7 +386,7 @@ Resources:
       #MixedInstancesPolicy: 
         #MixedInstancesPolicy
       NewInstancesProtectedFromScaleIn: false
-      NotificationConfigurations:
+      #NotificationConfigurations:
         #- TopicARN: !Ref Snsnotification
           #NotificationTypes:
           #- autoscaling:EC2_INSTANCE_LAUNCH
