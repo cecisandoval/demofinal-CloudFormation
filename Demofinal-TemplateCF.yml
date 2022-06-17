@@ -342,16 +342,8 @@ Resources:
 
 
 
-  #Crear SNS notification 
-  Snsnotification:
-    Type: AWS::SNS::Topic
-    Properties: 
-      #ContentBasedDeduplication: false
-      DisplayName: Snsnotification
-      Subscription:
-        - Endpoint: "cecilia_sandoval@epam.com"
-          Protocol: "email"
-      TopicName: Snsnotification
+  #Crear SNS notification ----
+
 
 
   #Crear configuration for new Ec2
@@ -395,10 +387,10 @@ Resources:
         #MixedInstancesPolicy
       NewInstancesProtectedFromScaleIn: false
       NotificationConfigurations:
-        - TopicARN: !Ref Snsnotification
-          NotificationTypes:
-          - autoscaling:EC2_INSTANCE_LAUNCH
-          - autoscaling:EC2_INSTANCE_TERMINATE
+        #- TopicARN: !Ref Snsnotification
+          #NotificationTypes:
+          #- autoscaling:EC2_INSTANCE_LAUNCH
+          #- autoscaling:EC2_INSTANCE_TERMINATE
       TargetGroupARNs: 
         - !Ref LBTargetGourp
       TerminationPolicies: 
