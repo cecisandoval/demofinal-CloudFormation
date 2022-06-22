@@ -1,4 +1,4 @@
-Description: Demo Final CF
+Description: Demo Final CF Chida
 
 Parameters:
   EnvironmentName: #Nombre de Enviroment
@@ -38,6 +38,39 @@ Parameters:
     Description: Key Pair for EC2
     Type: 'AWS::EC2::KeyPair::KeyName'
     Default: mykey
+
+
+  DBName: # The WordPress database name
+    Type: String
+    Default: wordpress
+
+  DBUser: #The WordPress database admin account username
+    #DatabaseMasterUsername:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master username.
+    ConstraintDescription: Must contain only alphanumeric characters (minimum 8; maximum 16).
+    MaxLength: 16
+    MinLength: 3
+    Type: String
+    Default: wordpress
+
+  DBPassword: #The WordPress database admin account passwor
+    #DatabaseMasterPassword:
+    AllowedPattern: ^([a-zA-Z0-9`~!#$%^&*()_+,\\-])*$
+    ConstraintDescription: Must be letters (upper or lower), numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    Description: The Amazon RDS master password. Letters, numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    MaxLength: 41
+    MinLength: 8
+    NoEcho: true
+    Type: String
+    Default: AdminCeci1
+
+  #WPEmail:
+    #AllowedPattern: ^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$
+    #Description: The admin email address for WordPress and AWS notifications.
+    #Type: String
+    #Default: webmaster@wordpress.local
+
 
 Resources:
 
@@ -239,12 +272,15 @@ Resources:
       RouteTableId: !Ref PrivateMSQL2RouteTable
       SubnetId: !Ref PrivateSubnetMSQL2
 
+
+  # ================ Create SGs ==============
+
   #SG Load Balancer
   SecurityGroupLB:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SecurityGroupLB
-      GroupDescription: Enable port 80
+      GroupDescription: Enable port 80 LB
       VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -260,23 +296,147 @@ Resources:
       GroupDescription: SG web server
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        #- IpProtocol: tcp
-        #  FromPort: '22'
-        #  ToPort: '22'
-        #  CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: '80'
           ToPort: '80'
+          CidrIp: 0.0.0.0/0
+          #SourceSecurityGroupId:
+            #Fn::GetAtt:
+            #- SecurityGroupLB
+            #- GroupId
+          #CidrIp: !Ref SecurityGroupLB
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 0.0.0.0/0
+
+  #create SG EFS 
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: EfsSecurityGroup
+      GroupDescription: SG EFS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 0.0.0.0/0
+          #SourceSecurityGroupId:
+            #Fn::GetAtt:
+            #- SecurityGroupLB
+            #- GroupId
+        #- IpProtocol: tcp
+          #FromPort: 2049
+          #ToPort: 2049
+          #SourceSecurityGroupId:
+            #Fn::GetAtt:
+            #- SecurityGroupWS
+            #- GroupId
+          
+  #create SG RDs 
+  ERDSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: ERDSecurityGroup
+      GroupDescription: SG RDs
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
           SourceSecurityGroupId:
             Fn::GetAtt:
             - SecurityGroupLB
             - GroupId
-          #CidrIp: !Ref SecurityGroupLB
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+          #SourceSecurityGroupId:
+            #Fn::GetAtt:
+            #- SecurityGroupWS
+            #- GroupId
+        #- IpProtocol: tcp
+          #FromPort: 3306
+          #ToPort: 3306
+          #SourceSecurityGroupId:
+            #Fn::GetAtt:
+            #- EfsSecurityGroup
+            #- GroupId
+          
 
-  #Crear Application Load Balancer-----
+
+
+
+
+  # ================== EFS ====================
+
+
+  ElasticFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+
+  ElasticFileSystemMountTarget0:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+      - !Ref EfsSecurityGroup
+      SubnetId: !Ref PrivateSubnet1
+
+  ElasticFileSystemMountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+      - !Ref EfsSecurityGroup
+      SubnetId: !Ref PrivateSubnet2
+
+
+
+  # ============ Create RDS =========
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn: ElasticFileSystem
+    #DeletionPolicy: Delete
+    Properties:
+      DBName: !Ref DBName
+      Engine: MySQL
+      MultiAZ: true
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: db.t3.small
+      AllocatedStorage: 5
+      VPCSecurityGroups:
+      - !GetAtt ERDSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DataSubnetGroup
+
+
+  DataSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Database Subnet Group for WordPress
+      SubnetIds: 
+        - !Ref PrivateSubnetMSQL1
+        - !Ref PrivateSubnetMSQL2
+
+
+
+
+  # ============== Crear Application Load Balancer ==============
 
   #Crear Application Load Balancer
   AppLoadBalancer:
+    DependsOn: DBInstance
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: AppLoadBalancer
@@ -302,12 +462,13 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties: 
       HealthCheckEnabled: true
-      HealthCheckIntervalSeconds: 30
+      HealthCheckIntervalSeconds: 10
+      #HealthCheckPath: /
       HealthCheckPath: /
       HealthCheckPort: 80
       HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 15
-      HealthyThresholdCount: 5
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
       IpAddressType: ipv4
       Matcher: 
         HttpCode: 200-299
@@ -315,30 +476,12 @@ Resources:
       Port: 80
       Protocol: HTTP
       TargetType: instance
-      Targets: 
-        - Id: !Ref Ec2instance
-          Port: 80
-      UnhealthyThresholdCount: 3
+      #Targets: 
+        #- Id: !Ref Ec2instance
+          #Port: 80
+      UnhealthyThresholdCount: 5
       VpcId: !Ref VPC
 
-  #LB #---------------------------------
-
-  # Crear EC2 web server
-  Ec2instance:
-    Type: "AWS::EC2::Instance"
-    Properties:
-      InstanceType: t2.micro
-      ImageId: ami-052efd3df9dad4825 #ami creada
-      #ImageId: ami-09d56f8956ab235b3  #ami ubuntu
-      SubnetId: !Ref PrivateSubnet1
-      SecurityGroupIds:
-        - !Ref SecurityGroupWS
-      Tags:
-        - Key: Name
-          Value: Ec2instanceWeb
-
-
-  #Crear Autoscalling Group---------------------
 
 
 
@@ -354,15 +497,97 @@ Resources:
       TopicName: Snsnotification
 
 
-  #Crear configuration for new Ec2
-  ConfigNewEc2:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      ImageId: ami-052efd3df9dad4825
-      InstanceType: t2.micro
-      SecurityGroups:
-      - !Ref SecurityGroupWS
+  # ===================== Role ===========
 
+
+  WebInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+
+  WebInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref WebInstanceRole
+
+
+  #WebLaunchConfiguration
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn: AppLoadBalancer
+    Properties:
+      AssociatePublicIpAddress: true
+      #IamInstanceProfile: !Ref WebInstanceProfile
+      SecurityGroups: 
+        - !Ref SecurityGroupWS
+      ImageId: ami-03825044a3566ef6b # amzn linux ami-0cff7528ff583bf9a
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+          - |
+            #!/bin/bash -xe
+            EFSMOUNT="/srv/www/"
+            if grep -qs "$EFSMOUNT" /proc/mounts; then
+              echo "1"
+            else
+              echo "It's not mounted."
+              if [[ ! -d "/srv/www/" ]]; then
+                sudo mkdir -p /srv/www
+                echo "2"
+              fi
+            fi
+            sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${ElasticFileSystem}.efs.${AWS::Region}.amazonaws.com:/ /srv/www/
+            echo "3"
+            sudo sed -i "s/hostname/${AppLoadBalancer.DNSName}/g" /etc/apache2/sites-available/wordpress.conf
+            if [[ ! -f "/srv/www/wordpress/wp-config.php" ]]; then
+              echo "ningun file adjunto"
+              sudo chown www-data: /srv/www
+              sudo -u www-data cp -R /srv/www1/wordpress /srv/www/.
+              sed -i "s/'username_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'password_here'/'AdminCeci1'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'database_name_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'localhost'/'${DBInstance.Endpoint.Address}:3306'/g" /srv/www/wordpress/wp-config.php
+              cat /etc/apache2/sites-available/wordpress.conf
+              echo "============todo=bien================="
+              cat /srv/www/wordpress/wp-config.php
+            fi
+            echo "5"
+            sudo a2ensite wordpress
+            sudo a2enmod rewrite
+            sudo a2dissite 000-default
+            sudo service apache2 reload
+            sudo systemctl reload apache2
+          - DB_User: !Ref DBUser
+            DB_Password: !Ref DBPassword
+            DB_Name: !Ref DBName
+            #WP_Email: !Ref WPEmail
+            LBdns: !GetAtt AppLoadBalancer.DNSName
+            DB_ENDPOINT:  !GetAtt DBInstance.Endpoint.Address
+
+
+
+  # ===================== autoscaling group ==============
 
   #Crear Autoscaling group
   AutoScalingGroupTask10:
@@ -372,25 +597,25 @@ Resources:
       AvailabilityZones: 
         - !Select [ 0, !GetAZs '' ]
         - !Select [ 1, !GetAZs '' ]
-      #CapacityRebalance: Boolean
+      #CapacityRebalance: false
       #Context: String
       Cooldown: 60
-      #DefaultInstanceWarmup: Integer
+      #DefaultInstanceWarmup: 10
       DesiredCapacity: 2
       DesiredCapacityType: units
       HealthCheckGracePeriod: 30
       HealthCheckType: EC2
-      LaunchConfigurationName: !Ref ConfigNewEc2
+      LaunchConfigurationName: !Ref LaunchConfig
       #LaunchTemplate: 
         #LaunchTemplateSpecification
       #LifecycleHookSpecificationList: 
         #- LifecycleHookSpecification
       #LoadBalancerNames: 
         #- !Ref AppLoadBalancer
-      MaxSize: 3
+      MaxSize: 2
       #MetricsCollection: 
         #- MetricsCollection
-      MinSize: 2
+      MinSize: 1
       #MixedInstancesPolicy: 
         #MixedInstancesPolicy
       NewInstancesProtectedFromScaleIn: false
@@ -466,9 +691,6 @@ Resources:
         Value: AutoScalingGroupTask10
       ComparisonOperator: LessThanOrEqualToThreshold
       MetricName: CPUUtilization
-
-
-  #AG --------------------------------------------
 
 
 
