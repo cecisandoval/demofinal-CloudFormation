@@ -539,7 +539,7 @@ Resources:
       #IamInstanceProfile: !Ref WebInstanceProfile
       SecurityGroups: 
         - !Ref SecurityGroupWS
-      ImageId: ami-03825044a3566ef6b # amzn linux ami-0cff7528ff583bf9a
+      ImageId: ami-0fc671913ba4ab3b4 # amzn linux ami-0cff7528ff583bf9a
       InstanceType: t2.micro
       KeyName: !Ref KeyName
       UserData:
@@ -551,7 +551,6 @@ Resources:
             if grep -qs "$EFSMOUNT" /proc/mounts; then
               echo "1"
             else
-              echo "It's not mounted."
               if [[ ! -d "/srv/www/" ]]; then
                 sudo mkdir -p /srv/www
                 echo "2"
@@ -559,25 +558,27 @@ Resources:
             fi
             sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${ElasticFileSystem}.efs.${AWS::Region}.amazonaws.com:/ /srv/www/
             echo "3"
-            sudo sed -i "s/hostname/${AppLoadBalancer.DNSName}/g" /etc/apache2/sites-available/wordpress.conf
             if [[ ! -f "/srv/www/wordpress/wp-config.php" ]]; then
-              echo "ningun file adjunto"
+              echo "copiar archivos a carpeta"
               sudo chown www-data: /srv/www
               sudo -u www-data cp -R /srv/www1/wordpress /srv/www/.
-              sed -i "s/'username_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
-              sed -i "s/'password_here'/'AdminCeci1'/g" /srv/www/wordpress/wp-config.php
-              sed -i "s/'database_name_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
-              sed -i "s/'localhost'/'${DBInstance.Endpoint.Address}:3306'/g" /srv/www/wordpress/wp-config.php
-              cat /etc/apache2/sites-available/wordpress.conf
-              echo "============todo=bien================="
-              cat /srv/www/wordpress/wp-config.php
             fi
-            echo "5"
             sudo a2ensite wordpress
             sudo a2enmod rewrite
             sudo a2dissite 000-default
             sudo service apache2 reload
-            sudo systemctl reload apache2
+            if [[ ! -f "/srv/www/wordpress/wp-config.php" ]]; then
+              echo "============ARCHIVOS================="
+              sudo -u www-data cp /srv/www/wordpress/wp-config-sample.php /srv/www/wordpress/wp-config.php
+              ls -l  /srv/www/wordpress
+              sed -i "s/'username_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'password_here'/'AdminCeci1'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'database_name_here'/'wordpress'/g" /srv/www/wordpress/wp-config.php
+              sed -i "s/'localhost'/'${DBInstance.Endpoint.Address}:3306'/g" /srv/www/wordpress/wp-config.php
+            fi
+            cat /srv/www/wordpress/wp-config.php
+            cat /etc/apache2/sites-available/wordpress.conf
+            echo "============todo=bien=final================="
           - DB_User: !Ref DBUser
             DB_Password: !Ref DBPassword
             DB_Name: !Ref DBName
@@ -597,11 +598,11 @@ Resources:
       AvailabilityZones: 
         - !Select [ 0, !GetAZs '' ]
         - !Select [ 1, !GetAZs '' ]
-      #CapacityRebalance: false
+      #CapacityRebalance: Boolean
       #Context: String
       Cooldown: 60
-      #DefaultInstanceWarmup: 10
-      DesiredCapacity: 2
+      #DefaultInstanceWarmup: Integer
+      DesiredCapacity: 1
       DesiredCapacityType: units
       HealthCheckGracePeriod: 30
       HealthCheckType: EC2
@@ -612,7 +613,7 @@ Resources:
         #- LifecycleHookSpecification
       #LoadBalancerNames: 
         #- !Ref AppLoadBalancer
-      MaxSize: 2
+      MaxSize: 1
       #MetricsCollection: 
         #- MetricsCollection
       MinSize: 1
