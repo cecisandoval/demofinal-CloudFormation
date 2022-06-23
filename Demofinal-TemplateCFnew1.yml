@@ -369,6 +369,18 @@ Resources:
             #- EfsSecurityGroup
             #- GroupId
           
+  #----New security group Pipeline test
+  SecurityGroupPipeline:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SecurityGroupPipeline
+      GroupDescription: Enable port 80
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
 
 
   # ================== EFS ====================
@@ -493,8 +505,6 @@ Resources:
           Protocol: "email"
       TopicName: Snsnotification
 
-
-  # ===================== Role ===========
 
 
 
