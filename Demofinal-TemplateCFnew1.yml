@@ -370,20 +370,6 @@ Resources:
             #- GroupId
           
 
-  #----New security group Pipeline test ----------
-  SecurityGroupPipeline:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: SecurityGroupPipeline
-      GroupDescription: Enable port 80
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: '80'
-          ToPort: '80'
-          CidrIp: 0.0.0.0/0
-
-
 
   # ================== EFS ====================
 
@@ -521,7 +507,7 @@ Resources:
       #IamInstanceProfile: !Ref WebInstanceProfile
       SecurityGroups: 
         - !Ref SecurityGroupWS
-      ImageId: ami-0fc671913ba4ab3b4 # amzn linux ami-0cff7528ff583bf9a
+      ImageId: ami-0399b3f89a7f212a3 # amzn linux ami-0cff7528ff583bf9a
       InstanceType: t2.micro
       KeyName: !Ref KeyName
       UserData:
